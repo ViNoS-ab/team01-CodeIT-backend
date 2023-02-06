@@ -3,47 +3,51 @@ import json
 from django.http import HttpResponse , JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import firebase_admin
-from firebase_admin import credentials
+from firebase_admin import credentials,auth
 import google.auth
 from google.cloud import firestore
-import os
+import pyrebase
+from . import tests
 
-
-# This is an important step to login to database , please Amine do'nt change anything
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "./gip-codeit-01-firebase-adminsdk-xan5d-efd6bf3deb.json"
-
-cred = credentials.Certificate("./gip-codeit-01-firebase-adminsdk-xan5d-efd6bf3deb.json")
-
-
-credentials, project_id = google.auth.default()
-db = firestore.Client(credentials=credentials, project=project_id)
-firebase_admin.initialize_app(cred)
-
-# Initialize a Firestore client
-db = firestore.Client()
-
-def store_to_database(collection , document , query_dict):
-    doc_ref = db.collection(collection).document(document)
-    doc_ref.set(query_dict)
-
-def request_to_dict(json_user_details):
-    data = json_user_details.dict()  # Getting dict
-    data = data['']
-    return json.loads(data)  # Loading data from Json
-
+id_counter = 0
 
 @csrf_exempt
 def authentification(request):
     if request.method == 'POST':
         json_user_details = request.POST                        # Getting data from the request
-        details_dict = request_to_dict(json_user_details)                     # Loading data from Json
-        store_to_database("users","wkdN4NKpXJ5NBcya3mBN",details_dict)        # Store data to database
-        return JsonResponse(details_dict, status=200)
+        details_dict = tests.request_to_dict(json_user_details)                     # Loading data from Json
+        email = details_dict["email"]
+        password = details_dict["password"]
+        (response,user_id) = tests.auth_user(email,password)
+        if response == 0:                                           # Login successul
+            return JsonResponse({"Success":True,"user_id":user_id}, status=200)
+        else :                                                      # Login error
+            json_object = json.loads(response)
+            return JsonResponse(json_object)
     else :
-        return HttpResponse("Hello World", status=200)
+        return HttpResponse("There is no HTML in here")
 
+@csrf_exempt
+def signup(request):
+    global id_counter
+    if request.method == 'POST':
+        json_user_details = request.POST
 
-
+        details_dict = tests.request_to_dict(json_user_details)                     # Loading data from Json
+        email = details_dict["email"]
+        password = details_dict["password"]
+        id_account = str(id_counter)
+        (response,uid) = tests.create_user(id_account,email,password)
+        if response == 0:  # Login successful
+            id_counter += 1
+            return JsonResponse({"Success": True,"user_id": uid}, status=200)
+        else :
+                                # Login error
+            error = '{"Success": "False", "Error": "'+response+'"}'
+            json_object = json.loads(error)
+            return JsonResponse(json_object)
+    else :
+        return HttpResponse("No HTML here !")
 def homepage(request):
   return HttpResponse("In this page , we will render the Admin Dashboard HTML / CSS")
 

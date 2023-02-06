@@ -20,4 +20,5 @@ from . import views
 urlpatterns = [
     path('auth', views.authentification,name='auth'),
     path('', views.homepage , name = 'homepage'),   # Admin-dashboard webpage endpoint
+    path('signup',views.signup , name= 'signup')
 ]
