@@ -40,10 +40,39 @@ db = firestore.Client()
 
 def store_to_database(collection , document , query_dict):
     doc_ref = db.collection(collection).document(document)
-    doc_ref.set(query_dict)
+    try:
+        doc_ref.set(query_dict)
+        return (0,0)
+    except Exception as e:
+        return (1,e)
+
+
+
+def read_from_database(collection , document):
+    doc_ref = db.collection(collection).document(document)
+    try:
+        return (0,doc_ref.get())
+    except Exception as e:
+        return (1,e)
+
+def edit_from_database(collection , document,querydict):
+    doc_ref = db.collection(collection).document(document)
+    try:
+        doc_ref.update(querydict)
+        return (0, 0)
+    except Exception as e:
+        return (1, e)
+
+def delete_from_database(collection , document):
+    event_ref = db.collection(collection).document(document)
+    try:
+        event_ref.delete()
+        return (0, 0)
+    except Exception as e:
+        return (1, e)
+
 
 def request_to_dict(json_user_details):
-    print(json_user_details)
     data = json_user_details.dict()  # Getting dict
     data = data['']
     return json.loads(data)  # Loading data from Json
@@ -67,7 +96,7 @@ def delete_user(uid):
         return 0
     except Exception as e:
         print("Deleting Failed. Reason:", e)
-        return 1
+        return e
 
 def auth_user(email,password):
     try:
