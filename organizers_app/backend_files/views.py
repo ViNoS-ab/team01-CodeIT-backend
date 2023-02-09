@@ -57,8 +57,25 @@ def event(request):
     # {"organizer_id":"someid","name":"EventName","description":"event_description","participants":["id1","id2"]}
     if request.method == 'POST':        # Fully working
         ide = str(uuid.uuid4())
+        participants = []
+        participants.append(details_dict["organizer_id"])
+        aux_part = details_dict["participants"]
+        for user in aux_part:
+            participants.append(user)
         (success , error) = tests.store_to_database("Event",ide,details_dict)
         if success == 0:
+            for user in participants:
+                (success, user_data) = tests.read_from_database("User", user)
+                user_data = user_data.to_dict()
+                try:
+                    event_dict = user_data.pop(u'event_dict', None)
+                except:
+                    event_dict = []
+                if type(event_dict) is list:
+                    event_dict.append(ide)
+                else:
+                    event_dict = [ide]
+                (success, error) = tests.edit_from_database("User", user, {"event_dict": event_dict})
             return JsonResponse({"Success": True,"event_id":ide})
         else:
             return JsonResponse({"Success": False, "error": error})
@@ -154,6 +171,21 @@ def tasks(request):
         return JsonResponse({"Success": True})
     else:
         return JsonResponse({"Success": False, "error": error})
+
+
+@csrf_exempt
+def profile(request):
+    if request.method == "GET":         # Fully working
+        # example : http://127.0.0.1:8000/user?user_id=9af9f567-2de2-4e7b-8ece-14dfa6a3a118
+        user_id = request.GET['user_id']
+        (success, user_data) = tests.read_from_database("User", user_id)
+        if user_data.exists:
+            user_array = user_data.to_dict()
+            return JsonResponse({"Success": True, "User": user_array})
+        else:
+            return JsonResponse({"Success":False,"error":"invalid user_id"})
+
+
 
 def homepage(request):
   return HttpResponse("In this page , we will render the Admin Dashboard HTML / CSS")

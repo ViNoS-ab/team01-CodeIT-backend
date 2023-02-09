@@ -22,5 +22,6 @@ urlpatterns = [
     path('', views.homepage , name = 'homepage'),   # Admin-dashboard webpage endpoint
     path('signup',views.signup , name= 'signup'),
     path('event',views.event, name='event'),
-    path('tasks',views.tasks, name='tasks')
+    path('tasks',views.tasks, name='tasks'),
+    path('profile',views.profile, name='profile')
 ]
