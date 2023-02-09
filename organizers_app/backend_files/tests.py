@@ -44,7 +44,7 @@ def store_to_database(collection , document , query_dict):
         doc_ref.set(query_dict)
         return (0,0)
     except Exception as e:
-        return (1,e)
+        return (1,str(e))
 
 
 
@@ -53,7 +53,7 @@ def read_from_database(collection , document):
     try:
         return (0,doc_ref.get())
     except Exception as e:
-        return (1,e)
+        return (1,str(e))
 
 def edit_from_database(collection , document,querydict):
     doc_ref = db.collection(collection).document(document)
@@ -61,7 +61,7 @@ def edit_from_database(collection , document,querydict):
         doc_ref.update(querydict)
         return (0, 0)
     except Exception as e:
-        return (1, e)
+        return (1, str(e))
 
 def delete_from_database(collection , document):
     event_ref = db.collection(collection).document(document)
@@ -69,13 +69,12 @@ def delete_from_database(collection , document):
         event_ref.delete()
         return (0, 0)
     except Exception as e:
-        return (1, e)
+        return (1, str(e))
 
 
-def request_to_dict(json_user_details):
-    data = json_user_details.dict()  # Getting dict
-    data = data['']
-    return json.loads(data)  # Loading data from Json
+def request_to_dict(request):
+    request_body = request.body.decode('utf-8')
+    return json.loads(request_body)
 
 def create_user(id,email,password):
     # Before creating a new user you have to make sure that you activated the
@@ -105,3 +104,17 @@ def auth_user(email,password):
         return (0,user["localId"])
     except requests.exceptions.HTTPError as e:
         return (e.args[1].replace("\n",""),0)
+
+def id_by_username(username):
+    docs = db.collection("User").where("username", "==", username).limit(1).get()
+    if docs:
+        return docs[0].id
+    else:
+        return 1
+
+def tasks_by_id(uid):
+    output = []
+    docs = db.collection("Tasks").where("user_id", "==", uid).get()
+    for doc in docs:
+        output.append(doc.id)
+    return output

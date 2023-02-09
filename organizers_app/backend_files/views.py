@@ -8,94 +8,152 @@ import google.auth
 from google.cloud import firestore
 import pyrebase
 from . import tests
+import uuid
 
-event_index = 0
-id_counter = 0
 
 @csrf_exempt
-def authentification(request):
+def authentification(request):      #Fully working
+    # Request : {"email":"example@gmail.com","password":"some_password"}
     if request.method == 'POST':
-        json_user_details = request.POST                        # Getting data from the request
-        details_dict = tests.request_to_dict(json_user_details)                     # Loading data from Json
+        details_dict = tests.request_to_dict(request)                     # Loading data from Json
         email = details_dict["email"]
         password = details_dict["password"]
         (response,user_id) = tests.auth_user(email,password)
         if response == 0:                                           # Login successul
             return JsonResponse({"Success":True,"user_id":user_id}, status=200)
         else :                                                      # Login error
-            json_object = json.loads(response)
-            return JsonResponse(json_object)
+            return JsonResponse({"Success":False,"errer":response})
     else :
         return HttpResponse("There is no HTML in here")
 
 @csrf_exempt
-def signup(request):
-    global id_counter
-    if request.method == 'POST':
-        json_user_details = request.POST
+def signup(request):            #Fully working
 
-        details_dict = tests.request_to_dict(json_user_details)                     # Loading data from Json
+    if request.method == 'POST':
+        # Request example : {"username":"Sofiane","email":"example@gmail.com","password":"mypass"}
+        details_dict = tests.request_to_dict(request)                     # Loading data from Json
+        details_dict['IsAdmin'] = False
         email = details_dict["email"]
         password = details_dict["password"]
-        id_account = str(id_counter)
-        (response,uid) = tests.create_user(id_account,email,password)
-        if response == 0:  # Login successful
-            id_counter += 1
-            return JsonResponse({"Success": True,"user_id": uid}, status=200)
-        else :
-                                # Login error
-            error = '{"Success": "False", "Error": "'+response+'"}'
-            json_object = json.loads(error)
-            return JsonResponse(json_object)
+        username = details_dict["username"]
+        id = tests.id_by_username(username)
+        if id == 1:
+            id_account = str(uuid.uuid4())
+            (response,uid) = tests.create_user(id_account,email,password)
+            if response == 0:  # Login successful
+                details_dict.pop("password")
+                tests.store_to_database("User",id_account,details_dict)
+                return JsonResponse({"Success": True,"user_id": uid}, status=200)
+            else :
+                return JsonResponse({"Success":False,"error":response})
+        else: return JsonResponse({"Success": False, "error": "username taken"})
     else :
         return HttpResponse("No HTML here !")
 
 @csrf_exempt
 def event(request):
-    global event_index
-    if request.method == 'POST':
-        json_user_details = request.POST                        # Getting data from the request
-        details_dict = tests.request_to_dict(json_user_details)                     # Loading data from Json
-        name = details_dict["name"]
-        (success , error) = tests.store_to_database("Event",name+str(event_index),details_dict)
+    details_dict = tests.request_to_dict(request)
+    # Request example :
+    # {"organizer_id":"someid","name":"EventName","description":"event_description","participants":["id1","id2"]}
+    if request.method == 'POST':        # Fully working
+        ide = str(uuid.uuid4())
+        (success , error) = tests.store_to_database("Event",ide,details_dict)
         if success == 0:
-           event_index+=1
-           return JsonResponse({"Success":True})
+            return JsonResponse({"Success": True,"event_id":ide})
         else:
-            return JsonResponse({"Success":False,"error":error})
-    if request.method == "GET":
-        my_data = request.GET.get("name")
-        print(my_data)
-        return HttpResponse("ok")
-    if request.method == "PUT":
-        # Split the request body into parts
-        parts = request.body.split(b'\r\n')
-        # Find the part that contains the JSON data
-        json_part = next(p for p in parts if p.startswith(b'{"'))
-        # Parse the JSON data into a Python object
-        details_dict = json.loads(json_part.decode('utf-8'))
+            return JsonResponse({"Success": False, "error": error})
+    if request.method == "GET":     #Fully working
+    # Request example :
+    # http://127.0.0.1:8000/event?event_id=695a5d4c-1ba8-4e50-80d1-f631485dd32e
+        event_id = request.GET['event_id']
+        (success, task_data) = tests.read_from_database("Event", event_id)
+        if task_data.exists:
+            tasks_array = task_data.to_dict()
+            return JsonResponse({"Success": True, "Event": tasks_array})
+        else:
+            return JsonResponse({"Success": False, "error": "invalid event_id"})
+
+    if request.method == "PUT":          # Fully working
+        # request : {"event_id":"someid","*The fields you want to change*":"New_value"}
         event_id = details_dict["event_id"]
         details_dict.pop("event_id")
-        (response,error) = tests.edit_from_database("Event",event_id,details_dict)
-        if response == 0:
-            return JsonResponse({"Success": True})
-        else:
-            return JsonResponse({"Success": False, "error": error})
-    if request.method == "DELETE":
-        parts = request.body.split(b'\r\n')
-        # Find the part that contains the JSON data
-        json_part = next(p for p in parts if p.startswith(b'{"'))
-
-        # Parse the JSON data into a Python object
-        details_dict = json.loads(json_part.decode('utf-8'))
+        (success,error) = tests.edit_from_database("Event",event_id,details_dict)
+    if request.method == "DELETE":      # Fully working
+        # request : {"event_id":"someid"}
         event_id = details_dict["event_id"]
-        (response,error) = tests.delete_from_database("Event",event_id)
-        if response == 0:
-            return JsonResponse({"Success": True})
+        (success,error) = tests.delete_from_database("Event",event_id)
+    if success == 0:
+        return JsonResponse({"Success": True})
+    else:
+        return JsonResponse({"Success": False, "error": error})
+
+
+@csrf_exempt
+def tasks(request):
+    details_dict = tests.request_to_dict(request)
+    if request.method == 'POST':            # Working  (no error handling sometimes)
+
+    # Request example : {"user_id":"someid","event_id":"someid","description":"Finish the UI","deadline":"24 feb 2023"}
+
+        details_dict['IsDone'] = False
+        idt = str(uuid.uuid4())
+        (success , error) = tests.store_to_database("Tasks",idt,details_dict)
+        if success == 0:
+            # Get the tasks array from the event:
+            event_id = details_dict["event_id"]
+            user_id = details_dict["user_id"]
+
+            (success,event_data) = tests.read_from_database("Event",event_id)
+            event_data = event_data.to_dict()
+            try :
+                tasks_dict = event_data.pop(u'tasks_dict', None)
+            except:
+                tasks_dict = []
+            if type(tasks_dict) is list:
+                tasks_dict.append(idt)
+            else:
+                tasks_dict = [idt]
+            (success,error) = tests.edit_from_database("Event",event_id,{"tasks_dict":tasks_dict})
+
+            #--------------------------------------------------------------------------------
+
+            (success, user_data) = tests.read_from_database("User", user_id)
+            user_data = user_data.to_dict()
+            try:
+                tasks_dict = user_data.pop(u'tasks_dict', None)
+            except:
+                tasks_dict = []
+            if type(tasks_dict) is list:
+                tasks_dict.append(idt)
+            else:
+                tasks_dict = [idt]
+            (success, error) = tests.edit_from_database("User", user_id, {"tasks_dict": tasks_dict})
+            #---------------------------------------------------------------------------------
+
+    if request.method == "GET":         # Fully working
+        # example : http://127.0.0.1:8000/tasks?task_id=9af9f567-2de2-4e7b-8ece-14dfa6a3a118
+        task_id = request.GET['task_id']
+        (success, task_data) = tests.read_from_database("Tasks", task_id)
+        if task_data.exists:
+            tasks_array = task_data.to_dict()
+            return JsonResponse({"Success": True, "Tasks": tasks_array})
         else:
-            return JsonResponse({"Success": False, "error": error})
+            return JsonResponse({"Success":False,"error":"invalid task_id"})
 
 
+    if request.method == "PUT":         # Fully working
+        # Request example : {"task_id":"Someid","Field_you_change":"New_value"}
+        task_id = details_dict["task_id"]
+        details_dict.pop("task_id")
+        (success,error) = tests.edit_from_database("Tasks",task_id,details_dict)
+    if request.method == "DELETE":      # Fully working
+        # Request example : {"task_id":"Someid"}
+        task_id = details_dict["task_id"]
+        (success,error) = tests.delete_from_database("Tasks",task_id)
+    if success == 0:
+        return JsonResponse({"Success": True})
+    else:
+        return JsonResponse({"Success": False, "error": error})
 
 def homepage(request):
   return HttpResponse("In this page , we will render the Admin Dashboard HTML / CSS")
